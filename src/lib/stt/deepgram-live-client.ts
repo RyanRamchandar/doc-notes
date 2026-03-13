@@ -52,17 +52,25 @@ async function getDeepgramAuthorization() {
       const payload = (await response.json()) as { access_token: string };
       return `Bearer ${payload.access_token}`;
     }
-  } catch {
-    // fall through to public key mode
+
+    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    throw new Error(
+      body.error ?? `Deepgram token request failed (${response.status})`,
+    );
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("token")) {
+      throw error;
+    }
+    const publicKey = process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY;
+    if (publicKey) {
+      return `Token ${publicKey}`;
+    }
+    throw new Error(
+      error instanceof Error
+        ? error.message
+        : "Deepgram credentials are not configured.",
+    );
   }
-
-  const publicKey = process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY;
-
-  if (publicKey) {
-    return `Token ${publicKey}`;
-  }
-
-  throw new Error("Deepgram credentials are not configured.");
 }
 
 function toTranscriptSegment(message: DeepgramResultMessage): TranscriptSegment | null {
