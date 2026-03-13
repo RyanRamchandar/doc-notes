@@ -30,11 +30,20 @@ export function NoteEditor({
     <div className="space-y-6">
       <ExportActions note={note} sessionTitle={sessionTitle} />
       <div className="space-y-4">
-        {note.sections.map((section) => (
-          <div key={section.key} className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">{section.label}</label>
+        {note.sections.map((section, index) => (
+          <div
+            key={section.key}
+            className="rounded-3xl border border-slate-100 bg-gradient-to-br from-white to-slate-50/70 p-4 shadow-sm"
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <label className="text-sm font-medium text-slate-700">{section.label}</label>
+              <div className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">
+                Section {index + 1}
+              </div>
+            </div>
             <Textarea
               value={section.content}
+              className="min-h-[116px] border-slate-200 bg-white/90"
               onChange={(event) =>
                 onChange({
                   ...note,

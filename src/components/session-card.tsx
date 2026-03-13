@@ -10,7 +10,8 @@ import { type SessionRecord } from "@/types/session";
 export function SessionCard({ session }: { session: SessionRecord }) {
   return (
     <Link href={`/sessions/${session.id}`} className="block">
-      <Card className="transition-transform hover:-translate-y-0.5 hover:border-slate-300">
+      <Card className="overflow-hidden border border-slate-100 transition-all hover:-translate-y-1 hover:border-sky-200 hover:shadow-[0_18px_50px_rgba(14,165,233,0.12)]">
+        <div className="h-1.5 bg-gradient-to-r from-sky-500 via-cyan-500 to-teal-400" />
         <CardContent className="space-y-4 p-5">
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-1">
@@ -25,7 +26,7 @@ export function SessionCard({ session }: { session: SessionRecord }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="outline">
+            <Badge variant="outline" className="border-sky-100 bg-sky-50 text-sky-700">
               <Mic className="mr-1 size-3" />
               {formatSeconds(session.durationSeconds)}
             </Badge>
@@ -33,7 +34,7 @@ export function SessionCard({ session }: { session: SessionRecord }) {
               {session.transcriptSegments.filter((segment) => segment.isFinal).length} segments
             </Badge>
             {session.generatedNote ? (
-              <Badge variant="default">
+              <Badge variant="default" className="from-indigo-500 via-sky-500 to-cyan-500">
                 <FileText className="mr-1 size-3" />
                 {NOTE_FORMAT_LABELS[session.generatedNote.format]}
               </Badge>

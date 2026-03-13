@@ -6,10 +6,10 @@ export function TranscriptSegmentRow({ segment }: { segment: TranscriptSegment }
   return (
     <div
       className={cn(
-        "rounded-2xl border px-4 py-3 transition-colors",
+        "rounded-3xl border px-4 py-3 shadow-sm transition-colors",
         segment.isFinal
-          ? "border-slate-200 bg-white"
-          : "border-dashed border-sky-200 bg-sky-50/70",
+          ? "border-sky-100 bg-gradient-to-br from-white to-sky-50/70"
+          : "border-dashed border-cyan-200 bg-gradient-to-br from-cyan-50 to-sky-50",
       )}
     >
       <div className="mb-2 flex items-center gap-2">

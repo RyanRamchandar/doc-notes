@@ -5,14 +5,17 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200",
   {
     variants: {
       variant: {
-        default: "bg-slate-900 text-white hover:bg-slate-800",
-        secondary: "bg-slate-100 text-slate-900 hover:bg-slate-200",
-        outline: "border border-slate-200 bg-white text-slate-900 hover:bg-slate-50",
-        ghost: "text-slate-700 hover:bg-slate-100",
+        default:
+          "bg-gradient-to-r from-sky-600 via-cyan-600 to-teal-500 text-white shadow-[0_10px_30px_rgba(14,165,233,0.24)] hover:-translate-y-0.5 hover:shadow-[0_14px_36px_rgba(14,165,233,0.28)]",
+        secondary:
+          "bg-sky-50 text-sky-900 ring-1 ring-inset ring-sky-100 hover:bg-sky-100",
+        outline:
+          "border border-slate-200 bg-white text-slate-900 shadow-sm hover:border-sky-200 hover:bg-sky-50/60 hover:text-sky-900",
+        ghost: "text-slate-700 hover:bg-sky-50 hover:text-sky-900",
         destructive: "bg-red-600 text-white hover:bg-red-700",
       },
       size: {
