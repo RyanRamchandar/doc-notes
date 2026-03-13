@@ -112,6 +112,7 @@ export class DeepgramLiveClient implements LiveTranscriptionClient {
   private reconnectAttempts = 0;
   private closedByUser = false;
   private keepAliveInterval: number | null = null;
+  private socketReady = false;
 
   constructor(callbacks: LiveTranscriptionCallbacks) {
     this.callbacks = callbacks;
@@ -147,6 +148,7 @@ export class DeepgramLiveClient implements LiveTranscriptionClient {
 
   stop() {
     this.closedByUser = true;
+    this.socketReady = false;
     this.recorder?.stop();
     this.recorder = null;
     this.socket?.sendCloseStream({ type: "CloseStream" });
@@ -173,47 +175,69 @@ export class DeepgramLiveClient implements LiveTranscriptionClient {
       reconnectAttempts: 2,
     });
 
-    this.socket.on("open", () => {
-      this.reconnectAttempts = 0;
-      this.callbacks.onStateChange("recording");
-      this.startKeepAlive();
-    });
+    this.socketReady = false;
+    let hasOpened = false;
 
-    this.socket.on("message", (message) => {
-      if (message.type !== "Results") {
-        return;
-      }
+    await new Promise<void>((resolve, reject) => {
+      this.socket?.on("open", () => {
+        hasOpened = true;
+        this.socketReady = true;
+        this.reconnectAttempts = 0;
+        this.callbacks.onStateChange("recording");
+        this.startKeepAlive();
+        resolve();
+      });
 
-      const segment = toTranscriptSegment(message as DeepgramResultMessage);
+      this.socket?.on("message", (message) => {
+        if (message.type !== "Results") {
+          return;
+        }
 
-      if (segment) {
-        this.callbacks.onSegment(segment);
-      }
-    });
+        const segment = toTranscriptSegment(message as DeepgramResultMessage);
 
-    this.socket.on("close", () => {
-      this.clearKeepAlive();
-      if (!this.closedByUser && this.reconnectAttempts < 2) {
-        this.reconnectAttempts += 1;
-        this.callbacks.onStateChange(
-          "connecting",
-          `Reconnecting to transcription service (${this.reconnectAttempts}/2)…`,
-        );
-        void this.connectSocket();
-        return;
-      }
+        if (segment) {
+          this.callbacks.onSegment(segment);
+        }
+      });
 
-      if (!this.closedByUser) {
-        this.callbacks.onStateChange(
-          "error",
-          "Transcription connection ended unexpectedly.",
-        );
-      }
-    });
+      this.socket?.on("close", () => {
+        this.socketReady = false;
+        this.clearKeepAlive();
 
-    this.socket.on("error", (error) => {
-      this.callbacks.onError(error);
-      this.callbacks.onStateChange("error", error.message);
+        if (!hasOpened) {
+          reject(new Error("Transcription connection ended before opening."));
+          return;
+        }
+
+        if (!this.closedByUser && this.reconnectAttempts < 2) {
+          this.reconnectAttempts += 1;
+          this.callbacks.onStateChange(
+            "connecting",
+            `Reconnecting to transcription service (${this.reconnectAttempts}/2)…`,
+          );
+          void this.connectSocket();
+          return;
+        }
+
+        if (!this.closedByUser) {
+          this.callbacks.onStateChange(
+            "error",
+            "Transcription connection ended unexpectedly.",
+          );
+        }
+      });
+
+      this.socket?.on("error", (error) => {
+        this.socketReady = false;
+        this.callbacks.onError(error);
+
+        if (!hasOpened) {
+          reject(error);
+          return;
+        }
+
+        this.callbacks.onStateChange("error", error.message);
+      });
     });
   }
 
@@ -231,7 +255,12 @@ export class DeepgramLiveClient implements LiveTranscriptionClient {
       : new MediaRecorder(this.stream);
 
     this.recorder.addEventListener("dataavailable", async (event) => {
-      if (!event.data.size || !this.socket || this.recorder?.state === "paused") {
+      if (
+        !event.data.size ||
+        !this.socket ||
+        !this.socketReady ||
+        this.recorder?.state === "paused"
+      ) {
         return;
       }
 
