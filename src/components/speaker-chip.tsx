@@ -2,7 +2,7 @@ import { Badge } from "@/components/ui/badge";
 
 export function SpeakerChip({ speaker }: { speaker: string }) {
   return (
-    <Badge variant="outline" className="border-sky-100 bg-white text-sky-700">
+    <Badge variant="outline" className="border-[#e8ddd2] bg-[#fffaf6] text-[#784351]">
       {speaker}
     </Badge>
   );

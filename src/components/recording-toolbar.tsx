@@ -23,19 +23,38 @@ export function RecordingToolbar({
 
   return (
     <div className="flex flex-wrap gap-3">
-      <Button onClick={onStart} disabled={!canStart}>
+      <Button
+        className="rounded-2xl bg-[#1ea24a] text-white shadow-none hover:bg-[#18833c]"
+        onClick={onStart}
+        disabled={!canStart}
+      >
         <Mic className="size-4" />
         Start
       </Button>
-      <Button variant="secondary" onClick={onPause} disabled={!canPause}>
+      <Button
+        variant="secondary"
+        className="rounded-2xl bg-[#f7f1ea] text-[#4c3137] hover:bg-[#efe5da]"
+        onClick={onPause}
+        disabled={!canPause}
+      >
         <Pause className="size-4" />
         Pause
       </Button>
-      <Button variant="outline" onClick={onResume} disabled={!canResume}>
+      <Button
+        variant="outline"
+        className="rounded-2xl border-[#e5d8c7] bg-white text-[#4c3137]"
+        onClick={onResume}
+        disabled={!canResume}
+      >
         <Play className="size-4" />
         Resume
       </Button>
-      <Button variant="outline" onClick={onStop} disabled={!canStop}>
+      <Button
+        variant="outline"
+        className="rounded-2xl border-[#e5d8c7] bg-white text-[#4c3137]"
+        onClick={onStop}
+        disabled={!canStop}
+      >
         <Square className="size-4" />
         Stop
       </Button>

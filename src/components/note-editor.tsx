@@ -37,13 +37,13 @@ export function NoteEditor({
           >
             <div className="mb-3 flex items-center justify-between gap-3">
               <label className="text-sm font-medium text-slate-700">{section.label}</label>
-              <div className="rounded-full bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700">
+              <div className="rounded-full bg-[#f7efe9] px-2.5 py-1 text-xs font-medium text-[#8c4560]">
                 Section {index + 1}
               </div>
             </div>
             <Textarea
               value={section.content}
-              className="min-h-[116px] border-slate-200 bg-white/90"
+              className="min-h-[116px] border-[#e8ddd2] bg-white/90"
               onChange={(event) =>
                 onChange({
                   ...note,

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 
 import { AppHeader } from "@/components/app-header";
+import { NavRail } from "@/components/nav-rail";
 import { Toaster } from "@/components/ui/toaster";
 import "@/app/globals.css";
 
@@ -23,9 +24,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} font-sans antialiased`}>
-        <div className="min-h-screen">
-          <AppHeader />
-          <main>{children}</main>
+        <div className="flex min-h-screen">
+          <NavRail />
+          <div className="flex min-h-screen flex-1 flex-col">
+            <div className="lg:hidden">
+              <AppHeader />
+            </div>
+            <main className="flex-1">{children}</main>
+          </div>
         </div>
         <Toaster />
       </body>

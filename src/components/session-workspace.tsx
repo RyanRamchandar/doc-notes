@@ -4,10 +4,9 @@ import Link from "next/link";
 import {
   Activity,
   ChevronLeft,
-  FileText,
-  Sparkles,
+  ChevronRight,
+  Mic,
   Stethoscope,
-  Waves,
 } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
@@ -96,94 +95,120 @@ export function SessionWorkspace({ sessionId }: { sessionId: string }) {
     }
   };
 
+  const primaryRecordingAction = () => {
+    if (recordingState === "recording") {
+      pauseRecording();
+      return;
+    }
+
+    if (recordingState === "paused") {
+      resumeRecording();
+      return;
+    }
+
+    setError("");
+    void startRecording();
+  };
+
+  const primaryRecordingLabel =
+    recordingState === "recording"
+      ? "Pause"
+      : recordingState === "paused"
+        ? "Resume"
+        : "Transcribe";
+
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-6 py-8 lg:px-8">
-      <div className="relative overflow-hidden rounded-[32px] border border-white/70 bg-white/80 p-6 shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur-sm lg:p-8">
-        <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.18),transparent_42%),radial-gradient(circle_at_top_right,rgba(20,184,166,0.16),transparent_36%)]" />
-        <div className="relative flex flex-wrap items-start justify-between gap-4">
-          <div className="space-y-3">
-            <Link
-              href="/"
-              className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-sky-900"
-            >
-              <ChevronLeft className="size-4" />
-              Back to workspace
-            </Link>
+    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 py-4 lg:px-6 lg:py-6">
+      <section className="overflow-hidden rounded-[36px] border border-[#eadfd4] bg-[#fcfbf8] shadow-[0_20px_60px_rgba(85,61,54,0.08)]">
+        <div className="border-b border-[#efe6de] px-6 py-4 lg:px-8">
+          <div className="flex flex-wrap items-start justify-between gap-5">
             <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="gap-1.5">
-                  <Stethoscope className="size-3" />
-                  Active scribe session
-                </Badge>
-                <Badge variant="outline" className="gap-1.5 border-cyan-100 bg-cyan-50 text-cyan-700">
-                  <Activity className="size-3" />
-                  Real-time draft workspace
-                </Badge>
+              <div className="flex items-center gap-2 text-sm text-[#8d7b76]">
+                <Link
+                  href="/"
+                  className="inline-flex items-center gap-2 font-medium transition hover:text-[#4c3137]"
+                >
+                  <ChevronLeft className="size-4" />
+                  Workspace
+                </Link>
+                <ChevronRight className="size-4" />
+                <span className="truncate">{session.title}</span>
               </div>
-              <div>
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-950 lg:text-4xl">
-                  {session.title}
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Record, review the transcript, and refine the note draft from one focused clinical workspace.
-                </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="border-[#edd9df] bg-[#f7e9ef] text-[#784351]">
+                  <Stethoscope className="mr-1 size-3" />
+                  {session.noteFormat === "soap" ? "SOAP note" : "Clinical note"}
+                </Badge>
+                <Badge className="border-[#d8eee2] bg-[#edf8f1] text-[#2e8b57]">
+                  <Activity className="mr-1 size-3" />
+                  {recordingState === "recording"
+                    ? "Recording"
+                    : recordingState === "paused"
+                      ? "Paused"
+                      : "Ready"}
+                </Badge>
+                <Badge variant="outline" className="border-[#e8ddd2] bg-white text-[#8d7b76]">
+                  {elapsedSeconds.toString().padStart(2, "0")}s elapsed
+                </Badge>
               </div>
             </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <RecordingStatusBadge state={recordingState} />
-            <Badge
-              variant={providerMode === "mock" ? "warning" : "outline"}
-              className={
-                providerMode === "mock"
-                  ? "border-amber-200 bg-amber-50"
-                  : "border-emerald-100 bg-emerald-50 text-emerald-700"
-              }
-            >
-              {providerMode === "mock" ? "Demo STT mode" : "Deepgram live"}
-            </Badge>
-            {note ? (
-              <Badge variant="outline" className="border-indigo-100 bg-indigo-50 text-indigo-700">
-                {note.sections.length} note sections
+
+            <div className="flex flex-wrap items-center gap-3">
+              <RecordingStatusBadge state={recordingState} />
+              <Badge
+                variant={providerMode === "mock" ? "warning" : "outline"}
+                className={
+                  providerMode === "mock"
+                    ? "border-amber-200 bg-amber-50"
+                    : "border-[#d8eee2] bg-[#edf8f1] text-[#2e8b57]"
+                }
+              >
+                {providerMode === "mock" ? "Demo STT mode" : "Deepgram live"}
               </Badge>
-            ) : null}
+              <Button
+                className="rounded-2xl bg-[#1ea24a] px-5 text-white shadow-none hover:bg-[#18833c]"
+                onClick={primaryRecordingAction}
+              >
+                <Mic className="size-4" />
+                {primaryRecordingLabel}
+              </Button>
+              <Button
+                variant="outline"
+                className="rounded-2xl border-[#d9cfbf] bg-white px-4 text-[#4c3137]"
+                onClick={() => {
+                  if (recordingState === "recording" || recordingState === "paused") {
+                    stopRecording();
+                  } else {
+                    void handleGenerateNote();
+                  }
+                }}
+              >
+                {recordingState === "recording" || recordingState === "paused"
+                  ? "Stop"
+                  : "Generate"}
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {error ? <ErrorAlert description={error} /> : null}
+        {error ? (
+          <div className="px-6 pt-6 lg:px-8">
+            <ErrorAlert description={error} />
+          </div>
+        ) : null}
 
-      <section className="grid gap-6 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <Card className="overflow-hidden border border-sky-100/80 bg-white/85">
-          <div className="h-1.5 bg-gradient-to-r from-sky-500 via-cyan-500 to-teal-400" />
-          <CardHeader className="pb-4">
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle>Recording controls</CardTitle>
-              <Badge variant="outline" className="border-sky-100 bg-sky-50 text-sky-700">
-                <Waves className="mr-1 size-3" />
-                Live capture
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <ElapsedTimer seconds={elapsedSeconds} />
-            <RecordingToolbar
-              state={recordingState}
-              onStart={() => {
-                setError("");
-                void startRecording();
-              }}
-              onPause={pauseRecording}
-              onResume={resumeRecording}
-              onStop={stopRecording}
-            />
-            <AudioLevelMeter level={audioLevel} />
-            <Separator />
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <p className="text-xs uppercase tracking-[0.24em] text-slate-400">
-                  Note format
-                </p>
+        <div className="grid gap-6 p-6 xl:grid-cols-[minmax(0,1fr)_360px] xl:p-8">
+          <div className="space-y-6">
+            <div className="overflow-hidden rounded-[32px] border border-[#eadfd4] bg-white shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#efe6de] px-6 py-4">
+                <div className="space-y-1">
+                  <p className="text-xs uppercase tracking-[0.24em] text-[#b19f96]">
+                    Draft output
+                  </p>
+                  <h1 className="text-3xl font-semibold tracking-tight text-[#1f1820]">
+                    {session.title}
+                  </h1>
+                </div>
                 <NoteFormatToggle
                   value={session.noteFormat}
                   onValueChange={(format) => {
@@ -192,59 +217,114 @@ export function SessionWorkspace({ sessionId }: { sessionId: string }) {
                   }}
                 />
               </div>
-              <Button
-                className="w-full"
-                onClick={() => void handleGenerateNote()}
-                disabled={isGeneratingNote}
-              >
-                <Sparkles className="size-4" />
-                {isGeneratingNote
-                  ? "Generating draft…"
-                  : note
-                    ? "Regenerate note"
-                    : "Generate note"}
-              </Button>
+
+              <div className="px-6 py-6">
+                <NoteEditor
+                  note={note}
+                  sessionTitle={session.title}
+                  onChange={(nextNote) => updateNote(nextNote)}
+                />
+              </div>
             </div>
-          </CardContent>
-        </Card>
 
-        <div className="grid gap-6 xl:grid-cols-2">
-          <Card className="min-h-[640px] overflow-hidden border border-sky-100/80 bg-white/85">
-            <div className="h-1.5 bg-gradient-to-r from-sky-400 to-cyan-500" />
-            <CardHeader>
-              <div className="flex items-center justify-between gap-3">
-                <CardTitle>Live transcript</CardTitle>
-                <Badge variant="outline" className="border-sky-100 bg-sky-50 text-sky-700">
-                  {allSegments.length} entries
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <TranscriptPanel segments={allSegments} />
-            </CardContent>
-          </Card>
+            <Card className="border border-[#eadfd4] bg-[#fffdfa]">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle>Session context</CardTitle>
+                  <Badge variant="outline" className="border-[#e8ddd2] bg-white text-[#8d7b76]">
+                    {allSegments.length} transcript entries
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="grid gap-3 md:grid-cols-3">
+                {[
+                  {
+                    label: "Recording mode",
+                    value: providerMode === "mock" ? "Demo transcription" : "Deepgram live",
+                  },
+                  {
+                    label: "Current note style",
+                    value: session.noteFormat === "soap" ? "SOAP note" : "Clinical note",
+                  },
+                  {
+                    label: "Saved locally",
+                    value: "Browser storage only",
+                  },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="rounded-[24px] border border-[#efe6de] bg-white p-4 shadow-sm"
+                  >
+                    <p className="text-xs uppercase tracking-[0.22em] text-[#b19f96]">
+                      {item.label}
+                    </p>
+                    <p className="mt-2 text-sm font-medium text-[#201a19]">{item.value}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
 
-          <Card className="min-h-[640px] overflow-hidden border border-teal-100/80 bg-white/85">
-            <div className="h-1.5 bg-gradient-to-r from-teal-400 to-indigo-500" />
-            <CardHeader>
-              <div className="flex items-center justify-between gap-3">
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="size-5 text-teal-600" />
-                  Structured note
-                </CardTitle>
-                <Badge variant="outline" className="border-teal-100 bg-teal-50 text-teal-700">
-                  {session.noteFormat === "soap" ? "SOAP" : "Clinical"}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <NoteEditor
-                note={note}
-                sessionTitle={session.title}
-                onChange={(nextNote) => updateNote(nextNote)}
-              />
-            </CardContent>
-          </Card>
+          <div className="space-y-4">
+            <Card className="overflow-hidden border border-[#eadfd4] bg-white">
+              <div className="h-1.5 bg-[#1ea24a]" />
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle>Transcribe</CardTitle>
+                  <Badge variant="outline" className="border-[#d8eee2] bg-[#edf8f1] text-[#2e8b57]">
+                    Live capture
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <ElapsedTimer seconds={elapsedSeconds} />
+                <RecordingToolbar
+                  state={recordingState}
+                  onStart={() => {
+                    setError("");
+                    void startRecording();
+                  }}
+                  onPause={pauseRecording}
+                  onResume={resumeRecording}
+                  onStop={stopRecording}
+                />
+                <AudioLevelMeter level={audioLevel} />
+                <Separator />
+                <div className="space-y-3">
+                  <p className="text-sm leading-6 text-[#726562]">
+                    Keep the visit running here while the main canvas stays focused
+                    on the note.
+                  </p>
+                  <Button
+                    className="w-full rounded-2xl bg-[#1ea24a] text-white shadow-none hover:bg-[#18833c]"
+                    onClick={() => void handleGenerateNote()}
+                    disabled={isGeneratingNote}
+                  >
+                    {isGeneratingNote
+                      ? "Generating draft…"
+                      : note
+                        ? "Refresh note draft"
+                        : "Generate note"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="overflow-hidden border border-[#eadfd4] bg-white">
+              <div className="h-1.5 bg-[#5b3440]" />
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-3">
+                  <CardTitle>Transcript</CardTitle>
+                  <Badge variant="outline" className="border-[#e8ddd2] bg-white text-[#8d7b76]">
+                    Live feed
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <TranscriptPanel segments={allSegments} />
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </section>
     </div>

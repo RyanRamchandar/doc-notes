@@ -8,8 +8,8 @@ export function TranscriptSegmentRow({ segment }: { segment: TranscriptSegment }
       className={cn(
         "rounded-3xl border px-4 py-3 shadow-sm transition-colors",
         segment.isFinal
-          ? "border-sky-100 bg-gradient-to-br from-white to-sky-50/70"
-          : "border-dashed border-cyan-200 bg-gradient-to-br from-cyan-50 to-sky-50",
+          ? "border-[#eadfd4] bg-gradient-to-br from-white to-[#fff8f2]"
+          : "border-dashed border-[#d7ede0] bg-gradient-to-br from-[#f3faf5] to-[#fffaf6]",
       )}
     >
       <div className="mb-2 flex items-center gap-2">
