@@ -14,6 +14,8 @@ export async function generateNoteWithOpenRouter(
     throw new Error("OpenRouter API key is not configured.");
   }
 
+  console.info("[api] Calling OpenRouter note generation with server API key.");
+
   const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
     headers: {

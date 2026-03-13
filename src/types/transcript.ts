@@ -7,7 +7,7 @@ export type TranscriptSegment = {
   isFinal: boolean;
   confidence: number | null;
   createdAt: string;
-  source: "deepgram" | "mock";
+  source: "browser" | "deepgram" | "mock";
 };
 
 export type TranscriptEvent =

@@ -116,6 +116,18 @@ export function SessionWorkspace({ sessionId }: { sessionId: string }) {
       : recordingState === "paused"
         ? "Resume"
         : "Transcribe";
+  const providerLabel =
+    providerMode === "mock"
+      ? "Demo STT mode"
+      : providerMode === "browser"
+        ? "Browser STT fallback"
+        : "Deepgram live";
+  const providerSummaryLabel =
+    providerMode === "mock"
+      ? "Demo transcription"
+      : providerMode === "browser"
+        ? "Browser speech fallback"
+        : "Deepgram live";
 
   return (
     <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-6 px-4 py-4 lg:px-6 lg:py-6">
@@ -156,14 +168,16 @@ export function SessionWorkspace({ sessionId }: { sessionId: string }) {
             <div className="flex flex-wrap items-center gap-3">
               <RecordingStatusBadge state={recordingState} />
               <Badge
-                variant={providerMode === "mock" ? "warning" : "outline"}
+                variant={providerMode === "deepgram" ? "outline" : "warning"}
                 className={
-                  providerMode === "mock"
-                    ? "border-amber-200 bg-amber-50"
-                    : "border-[#d8eee2] bg-[#edf8f1] text-[#2e8b57]"
+                  providerMode === "deepgram"
+                    ? "border-[#d8eee2] bg-[#edf8f1] text-[#2e8b57]"
+                    : providerMode === "browser"
+                      ? "border-sky-200 bg-sky-50 text-sky-700"
+                      : "border-amber-200 bg-amber-50"
                 }
               >
-                {providerMode === "mock" ? "Demo STT mode" : "Deepgram live"}
+                {providerLabel}
               </Badge>
               <Button
                 className="rounded-2xl bg-[#1ea24a] px-5 text-white shadow-none hover:bg-[#18833c]"
@@ -240,7 +254,7 @@ export function SessionWorkspace({ sessionId }: { sessionId: string }) {
                 {[
                   {
                     label: "Recording mode",
-                    value: providerMode === "mock" ? "Demo transcription" : "Deepgram live",
+                    value: providerSummaryLabel,
                   },
                   {
                     label: "Current note style",

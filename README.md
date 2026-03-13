@@ -16,7 +16,7 @@ It focuses on the top scribe workflow first:
 - TypeScript
 - Tailwind CSS
 - shadcn-style component primitives
-- Deepgram live transcription
+- Deepgram live transcription with browser speech fallback
 - OpenRouter note generation
 - localStorage persistence
 
@@ -88,16 +88,20 @@ You can set:
 
 That allows direct browser auth to Deepgram if you do not want to use the token route yet. This is only for quick demos and is not production-safe.
 
+If Deepgram is unavailable at runtime, the app next attempts browser-native speech recognition when the browser supports it.
+
 ### Demo mode
 
 If credentials are missing:
 
-- transcription falls back to a mock live transcript flow
+- transcription falls back to browser-native speech recognition when available, then to a mock live transcript flow
 - note generation falls back to a mock structured note when `OPENROUTER_API_KEY` is absent
 
 You can also force mock transcription with:
 
 - `NEXT_PUBLIC_FORCE_MOCK=true`
+
+That bypasses both Deepgram and browser-native speech recognition.
 
 ## Scripts
 

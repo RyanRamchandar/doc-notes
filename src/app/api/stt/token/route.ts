@@ -10,6 +10,8 @@ export async function POST() {
     );
   }
 
+  console.info("[api] Calling Deepgram auth grant with server API key.");
+
   const response = await fetch("https://api.deepgram.com/v1/auth/grant", {
     method: "POST",
     headers: {

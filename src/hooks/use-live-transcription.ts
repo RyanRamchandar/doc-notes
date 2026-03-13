@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { createLiveTranscriptionClient } from "@/lib/stt";
+import { createLiveTranscriptionClient, shouldForceMockTranscription } from "@/lib/stt";
+import { BrowserSpeechClient } from "@/lib/stt/browser-speech-client";
 import { MockLiveClient } from "@/lib/stt/mock-live-client";
 import { type LiveTranscriptionClient, type LiveTranscriptionState } from "@/lib/stt/types";
 import { type TranscriptSegment } from "@/types/transcript";
@@ -31,17 +32,21 @@ function mergeSegment(
   return [...segments, nextSegment].sort((left, right) => left.startMs - right.startMs);
 }
 
+type TranscriptionProviderMode = "browser" | "deepgram" | "mock";
+
 export function useLiveTranscription(initialSegments: TranscriptSegment[] = []) {
   const [segments, setSegments] = useState<TranscriptSegment[]>(initialSegments);
   const [interimSegment, setInterimSegment] = useState<TranscriptSegment | null>(null);
   const [state, setState] = useState<LiveTranscriptionState>("idle");
   const [statusMessage, setStatusMessage] = useState<string>("");
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [providerMode, setProviderMode] = useState<"deepgram" | "mock">("deepgram");
+  const [providerMode, setProviderMode] = useState<TranscriptionProviderMode>(
+    shouldForceMockTranscription() ? "mock" : "deepgram",
+  );
   const clientRef = useRef<LiveTranscriptionClient | null>(null);
 
   const attachClient = useCallback(
-    (client: LiveTranscriptionClient, mode: "deepgram" | "mock") => {
+    (client: LiveTranscriptionClient, mode: TranscriptionProviderMode) => {
       clientRef.current = client;
       setProviderMode(mode);
     },
@@ -49,46 +54,36 @@ export function useLiveTranscription(initialSegments: TranscriptSegment[] = []) 
   );
 
   const buildClient = useCallback(
-    (mode: "deepgram" | "mock" = "deepgram") =>
-      mode === "mock"
-        ? new MockLiveClient({
-            onSegment(segment) {
-              if (segment.isFinal) {
-                setSegments((current) => mergeSegment(current, segment));
-                setInterimSegment(null);
-                return;
-              }
+    (mode: TranscriptionProviderMode = "deepgram") => {
+      const callbacks = {
+        onSegment(segment: TranscriptSegment) {
+          if (segment.isFinal) {
+            setSegments((current) => mergeSegment(current, segment));
+            setInterimSegment(null);
+            return;
+          }
 
-              setInterimSegment(segment);
-            },
-            onStateChange(nextState, message) {
-              setState(nextState);
-              setStatusMessage(message ?? "");
-            },
-            onError(error) {
-              setState("error");
-              setStatusMessage(error.message);
-            },
-          })
-        : createLiveTranscriptionClient({
-            onSegment(segment) {
-              if (segment.isFinal) {
-                setSegments((current) => mergeSegment(current, segment));
-                setInterimSegment(null);
-                return;
-              }
+          setInterimSegment(segment);
+        },
+        onStateChange(nextState: LiveTranscriptionState, message?: string) {
+          setState(nextState);
+          setStatusMessage(message ?? "");
+        },
+        onError(error: Error) {
+          setState("error");
+          setStatusMessage(error.message);
+        },
+      };
 
-              setInterimSegment(segment);
-            },
-            onStateChange(nextState, message) {
-              setState(nextState);
-              setStatusMessage(message ?? "");
-            },
-            onError(error) {
-              setState("error");
-              setStatusMessage(error.message);
-            },
-          }),
+      switch (mode) {
+        case "browser":
+          return new BrowserSpeechClient(callbacks);
+        case "mock":
+          return new MockLiveClient(callbacks);
+        default:
+          return createLiveTranscriptionClient(callbacks);
+      }
+    },
     [],
   );
 
@@ -96,23 +91,42 @@ export function useLiveTranscription(initialSegments: TranscriptSegment[] = []) 
     setStatusMessage("");
     setState("connecting");
 
-    const primaryClient = buildClient("deepgram");
-    attachClient(primaryClient, "deepgram");
+    const fallbackOrder: TranscriptionProviderMode[] = shouldForceMockTranscription()
+      ? ["mock"]
+      : ["deepgram", "browser", "mock"];
+    let lastError: unknown = null;
 
-    try {
-      const nextStream = await primaryClient.start();
-      setStream(nextStream);
-    } catch (error) {
-      const fallbackClient = buildClient("mock");
-      attachClient(fallbackClient, "mock");
-      const nextStream = await fallbackClient.start();
-      setStatusMessage(
-        error instanceof Error
-          ? `${error.message} Falling back to demo transcription.`
-          : "Falling back to demo transcription.",
-      );
-      setStream(nextStream);
+    for (const mode of fallbackOrder) {
+      const client = buildClient(mode);
+      attachClient(client, mode);
+
+      try {
+        const nextStream = await client.start();
+        setStream(nextStream);
+
+        if (lastError) {
+          const fallbackMessage =
+            mode === "browser"
+              ? "Falling back to browser speech recognition."
+              : "Falling back to demo transcription.";
+
+          setStatusMessage(
+            lastError instanceof Error
+              ? `${lastError.message} ${fallbackMessage}`
+              : fallbackMessage,
+          );
+        }
+
+        return;
+      } catch (error) {
+        lastError = error;
+      }
     }
+
+    setState("error");
+    setStatusMessage(
+      lastError instanceof Error ? lastError.message : "Unable to start transcription.",
+    );
   }, [attachClient, buildClient]);
 
   const pause = useCallback(() => {
@@ -135,6 +149,7 @@ export function useLiveTranscription(initialSegments: TranscriptSegment[] = []) 
     setStatusMessage("");
     setState("idle");
     setStream(null);
+    setProviderMode(shouldForceMockTranscription() ? "mock" : "deepgram");
   }, [initialSegments]);
 
   const transcriptText = useMemo(
