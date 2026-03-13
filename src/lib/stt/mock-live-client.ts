@@ -26,17 +26,7 @@ export class MockLiveClient implements LiveTranscriptionClient {
 
   async start() {
     this.callbacks.onStateChange("connecting");
-    try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch (error) {
-      // Create a dummy media stream for demo mode when no microphone is available
-      const ctx = new AudioContext();
-      const oscillator = ctx.createOscillator();
-      const dst = ctx.createMediaStreamDestination();
-      oscillator.connect(dst);
-      oscillator.start();
-      this.stream = dst.stream;
-    }
+    this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     this.callbacks.onStateChange("recording", "Demo transcription mode is active.");
     this.scheduleNext();
     return this.stream;
