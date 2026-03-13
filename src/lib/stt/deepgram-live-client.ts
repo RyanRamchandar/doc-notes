@@ -29,11 +29,15 @@ type DeepgramResultMessage = {
   };
 };
 
-const MEDIA_RECORDER_OPTIONS = [
-  "audio/webm;codecs=opus",
-  "audio/webm",
-  "audio/mp4",
-].find((mimeType) => MediaRecorder.isTypeSupported(mimeType));
+function getSupportedMediaRecorderMimeType() {
+  if (typeof MediaRecorder === "undefined") {
+    return undefined;
+  }
+
+  return ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find((mimeType) =>
+    MediaRecorder.isTypeSupported(mimeType),
+  );
+}
 
 async function getDeepgramAuthorization() {
   try {
@@ -210,9 +214,11 @@ export class DeepgramLiveClient implements LiveTranscriptionClient {
       throw new Error("Cannot start recording without a media stream.");
     }
 
-    this.recorder = MEDIA_RECORDER_OPTIONS
+    const mimeType = getSupportedMediaRecorderMimeType();
+
+    this.recorder = mimeType
       ? new MediaRecorder(this.stream, {
-          mimeType: MEDIA_RECORDER_OPTIONS,
+          mimeType,
         })
       : new MediaRecorder(this.stream);
 

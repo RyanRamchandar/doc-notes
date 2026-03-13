@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useLiveTranscription } from "@/hooks/use-live-transcription";
 import {
@@ -19,15 +19,21 @@ export function useScribeSession(sessionId: string) {
   const [error, setError] = useState<string>("");
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [startedAtMs, setStartedAtMs] = useState<number | null>(null);
+  const sessionRef = useRef<SessionRecord | null>(null);
 
   const live = useLiveTranscription(session?.transcriptSegments ?? []);
 
+  const commitSession = useCallback((nextSession: SessionRecord | null) => {
+    sessionRef.current = nextSession;
+    setSession(nextSession);
+  }, []);
+
   useEffect(() => {
     const saved = getSessionById(sessionId);
-    setSession(saved);
+    commitSession(saved);
     setElapsedSeconds(saved?.durationSeconds ?? 0);
     setLoading(false);
-  }, [sessionId]);
+  }, [commitSession, sessionId]);
 
   useEffect(() => {
     if (live.state !== "recording") {
@@ -46,28 +52,36 @@ export function useScribeSession(sessionId: string) {
   }, [elapsedSeconds, live.state]);
 
   useEffect(() => {
-    if (!session) {
+    const currentSession = sessionRef.current;
+
+    if (!currentSession) {
       return;
     }
 
-    const sameDuration = session.durationSeconds === elapsedSeconds;
+    const sameDuration = currentSession.durationSeconds === elapsedSeconds;
     const sameTranscript =
-      JSON.stringify(session.transcriptSegments) === JSON.stringify(live.segments);
+      JSON.stringify(currentSession.transcriptSegments) === JSON.stringify(live.segments);
 
     if (sameDuration && sameTranscript) {
       return;
     }
 
-    const nextSession = updateSessionTranscript(session, live.segments, elapsedSeconds);
+    const nextSession = updateSessionTranscript(
+      currentSession,
+      live.segments,
+      elapsedSeconds,
+    );
 
     if (nextSession) {
-      setSession(nextSession);
+      commitSession(nextSession);
     }
-  }, [elapsedSeconds, live.segments, session]);
+  }, [commitSession, elapsedSeconds, live.segments]);
 
   const generateNote = useCallback(
     async (format: NoteFormat) => {
-      if (!session) {
+      const currentSession = sessionRef.current;
+
+      if (!currentSession) {
         return null;
       }
 
@@ -107,10 +121,10 @@ export function useScribeSession(sessionId: string) {
           format,
         };
 
-        const nextSession = updateSessionNote(session, note);
+        const nextSession = updateSessionNote(sessionRef.current ?? currentSession, note);
 
         if (nextSession) {
-          setSession(nextSession);
+          commitSession(nextSession);
         }
 
         return note;
@@ -118,40 +132,44 @@ export function useScribeSession(sessionId: string) {
         setIsGeneratingNote(false);
       }
     },
-    [live.transcriptText, session],
+    [commitSession, live.transcriptText],
   );
 
   const updateNote = useCallback(
     (nextNote: GeneratedNote | null) => {
-      if (!session) {
+      const currentSession = sessionRef.current;
+
+      if (!currentSession) {
         return;
       }
 
-      const nextSession = updateSessionNote(session, nextNote);
+      const nextSession = updateSessionNote(currentSession, nextNote);
 
       if (nextSession) {
-        setSession(nextSession);
+        commitSession(nextSession);
       }
     },
-    [session],
+    [commitSession],
   );
 
   const updateNoteFormat = useCallback(
     (format: NoteFormat) => {
-      if (!session) {
+      const currentSession = sessionRef.current;
+
+      if (!currentSession) {
         return;
       }
 
       const nextSession = upsertSession({
-        ...session,
+        ...currentSession,
         noteFormat: format,
       });
 
       if (nextSession) {
-        setSession(nextSession);
+        commitSession(nextSession);
       }
     },
-    [session],
+    [commitSession],
   );
 
   const note = session?.generatedNote ?? null;
