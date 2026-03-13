@@ -1,6 +1,6 @@
 "use client";
 
-import { DefaultDeepgramClient } from "@deepgram/sdk";
+import { DeepgramClient } from "@deepgram/sdk";
 
 import { DEEPGRAM_MODEL } from "@/lib/constants";
 import { createId } from "@/lib/utils";
@@ -29,6 +29,18 @@ type DeepgramResultMessage = {
   };
 };
 
+type DeepgramCloseEvent = {
+  code?: number;
+  reason?: string;
+  wasClean?: boolean;
+};
+
+type DeepgramSocketLike = Awaited<
+  ReturnType<InstanceType<typeof DeepgramClient>["listen"]["v1"]["connect"]>
+> & {
+  waitForOpen?: () => Promise<unknown>;
+};
+
 function getSupportedMediaRecorderMimeType() {
   if (typeof MediaRecorder === "undefined") {
     return undefined;
@@ -39,7 +51,7 @@ function getSupportedMediaRecorderMimeType() {
   );
 }
 
-async function getDeepgramAuthorization() {
+async function createDeepgramClient() {
   try {
     const response = await fetch("/api/stt/token", {
       method: "POST",
@@ -50,7 +62,9 @@ async function getDeepgramAuthorization() {
 
     if (response.ok) {
       const payload = (await response.json()) as { access_token: string };
-      return `Bearer ${payload.access_token}`;
+      return new DeepgramClient({
+        accessToken: payload.access_token,
+      });
     }
 
     const body = (await response.json().catch(() => ({}))) as { error?: string };
@@ -63,7 +77,9 @@ async function getDeepgramAuthorization() {
     }
     const publicKey = process.env.NEXT_PUBLIC_DEEPGRAM_API_KEY;
     if (publicKey) {
-      return `Token ${publicKey}`;
+      return new DeepgramClient({
+        apiKey: publicKey,
+      });
     }
     throw new Error(
       error instanceof Error
@@ -104,9 +120,7 @@ function toTranscriptSegment(message: DeepgramResultMessage): TranscriptSegment 
 
 export class DeepgramLiveClient implements LiveTranscriptionClient {
   private readonly callbacks: LiveTranscriptionCallbacks;
-  private socket: Awaited<
-    ReturnType<InstanceType<typeof DefaultDeepgramClient>["listen"]["v1"]["connect"]>
-  > | null = null;
+  private socket: DeepgramSocketLike | null = null;
   private stream: MediaStream | null = null;
   private recorder: MediaRecorder | null = null;
   private reconnectAttempts = 0;
@@ -161,10 +175,8 @@ export class DeepgramLiveClient implements LiveTranscriptionClient {
   }
 
   private async connectSocket() {
-    const authorization = await getDeepgramAuthorization();
-    const client = new DefaultDeepgramClient();
-    this.socket = await client.listen.v1.connect({
-      Authorization: authorization,
+    const client = await createDeepgramClient();
+    const socket = (await client.listen.v1.connect({
       model: DEEPGRAM_MODEL,
       punctuate: "true",
       smart_format: "true",
@@ -173,72 +185,91 @@ export class DeepgramLiveClient implements LiveTranscriptionClient {
       vad_events: "true",
       utterance_end_ms: 1000,
       reconnectAttempts: 2,
-    });
+    } as never)) as DeepgramSocketLike;
+    this.socket = socket;
 
     this.socketReady = false;
     let hasOpened = false;
+    let closedBeforeOpen: Error | null = null;
 
-    await new Promise<void>((resolve, reject) => {
-      this.socket?.on("open", () => {
-        hasOpened = true;
-        this.socketReady = true;
-        this.reconnectAttempts = 0;
-        this.callbacks.onStateChange("recording");
-        this.startKeepAlive();
-        resolve();
-      });
+    socket.on("message", (message) => {
+      if (message.type !== "Results") {
+        return;
+      }
 
-      this.socket?.on("message", (message) => {
-        if (message.type !== "Results") {
-          return;
-        }
+      const segment = toTranscriptSegment(message as DeepgramResultMessage);
 
-        const segment = toTranscriptSegment(message as DeepgramResultMessage);
-
-        if (segment) {
-          this.callbacks.onSegment(segment);
-        }
-      });
-
-      this.socket?.on("close", () => {
-        this.socketReady = false;
-        this.clearKeepAlive();
-
-        if (!hasOpened) {
-          reject(new Error("Transcription connection ended before opening."));
-          return;
-        }
-
-        if (!this.closedByUser && this.reconnectAttempts < 2) {
-          this.reconnectAttempts += 1;
-          this.callbacks.onStateChange(
-            "connecting",
-            `Reconnecting to transcription service (${this.reconnectAttempts}/2)…`,
-          );
-          void this.connectSocket();
-          return;
-        }
-
-        if (!this.closedByUser) {
-          this.callbacks.onStateChange(
-            "error",
-            "Transcription connection ended unexpectedly.",
-          );
-        }
-      });
-
-      this.socket?.on("error", (error) => {
-        this.socketReady = false;
-        this.callbacks.onError(error);
-
-        if (!hasOpened) {
-          reject(error);
-          return;
-        }
-
-        this.callbacks.onStateChange("error", error.message);
-      });
+      if (segment) {
+        this.callbacks.onSegment(segment);
+      }
     });
+
+    socket.on("close", (event?: DeepgramCloseEvent) => {
+      this.socketReady = false;
+      this.clearKeepAlive();
+      const closeMessage = event?.reason?.trim()
+        ? `Deepgram connection closed (${event.code ?? "unknown"}): ${event.reason}`
+        : `Deepgram connection closed (${event?.code ?? "unknown"}).`;
+
+      if (!hasOpened) {
+        closedBeforeOpen = new Error(closeMessage);
+        return;
+      }
+
+      if (!this.closedByUser && this.reconnectAttempts < 2) {
+        this.reconnectAttempts += 1;
+        this.callbacks.onStateChange(
+          "connecting",
+          `Reconnecting to transcription service (${this.reconnectAttempts}/2)…`,
+        );
+        void this.connectSocket();
+        return;
+      }
+
+      if (!this.closedByUser) {
+        this.callbacks.onStateChange("error", closeMessage);
+      }
+    });
+
+    socket.on("error", (error) => {
+      this.socketReady = false;
+      this.callbacks.onError(error);
+
+      if (!hasOpened) {
+        closedBeforeOpen = error;
+        return;
+      }
+
+      this.callbacks.onStateChange("error", error.message);
+    });
+
+    if (typeof socket.connect === "function") {
+      socket.connect();
+    }
+
+    if (typeof socket.waitForOpen === "function") {
+      await socket.waitForOpen();
+    } else if (closedBeforeOpen) {
+      throw closedBeforeOpen;
+    } else {
+      await new Promise<void>((resolve, reject) => {
+        socket.on("open", () => resolve());
+        socket.on("close", () =>
+          reject(closedBeforeOpen ?? new Error("Deepgram connection failed to open.")),
+        );
+        socket.on("error", (error) => reject(error));
+      });
+    }
+
+    if (closedBeforeOpen) {
+      throw closedBeforeOpen;
+    }
+
+    hasOpened = true;
+    this.socketReady = true;
+    this.reconnectAttempts = 0;
+    this.callbacks.onStateChange("recording");
+    this.startKeepAlive();
   }
 
   private startRecorder() {

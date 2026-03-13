@@ -119,6 +119,7 @@ export function useLiveTranscription(initialSegments: TranscriptSegment[] = []) 
 
         return;
       } catch (error) {
+        console.error(`[stt] ${mode} provider failed`, error);
         lastError = error;
       }
     }
