@@ -3,31 +3,14 @@
 import { DeepgramClient } from "@deepgram/sdk";
 
 import { DEEPGRAM_MODEL } from "@/lib/constants";
-import { createId } from "@/lib/utils";
+import {
+  type DeepgramResultMessage,
+  toTranscriptSegments,
+} from "@/lib/stt/deepgram-result-parser";
 import {
   type LiveTranscriptionCallbacks,
   type LiveTranscriptionClient,
 } from "@/lib/stt/types";
-import { type TranscriptSegment } from "@/types/transcript";
-
-type DeepgramResultMessage = {
-  type?: "Results" | "UtteranceEnd" | "SpeechStarted";
-  is_final?: boolean;
-  start?: number;
-  duration?: number;
-  channel?: {
-    alternatives?: Array<{
-      transcript?: string;
-      confidence?: number;
-      words?: Array<{
-        start: number;
-        end: number;
-        speaker?: number;
-        confidence?: number;
-      }>;
-    }>;
-  };
-};
 
 type DeepgramCloseEvent = {
   code?: number;
@@ -87,35 +70,6 @@ async function createDeepgramClient() {
         : "Deepgram credentials are not configured.",
     );
   }
-}
-
-function toTranscriptSegment(message: DeepgramResultMessage): TranscriptSegment | null {
-  const alternative = message.channel?.alternatives?.[0];
-  const transcript = alternative?.transcript?.trim();
-
-  if (!transcript) {
-    return null;
-  }
-
-  const words = alternative?.words ?? [];
-  const firstWord = words[0];
-  const lastWord = words[words.length - 1];
-  const speaker =
-    typeof firstWord?.speaker === "number" ? `Speaker ${firstWord.speaker + 1}` : null;
-
-  return {
-    id: createId(),
-    text: transcript,
-    startMs: Math.round((firstWord?.start ?? message.start ?? 0) * 1000),
-    endMs: Math.round(
-      (lastWord?.end ?? (message.start ?? 0) + (message.duration ?? 0)) * 1000,
-    ),
-    speaker,
-    isFinal: Boolean(message.is_final),
-    confidence: alternative?.confidence ?? null,
-    createdAt: new Date().toISOString(),
-    source: "deepgram",
-  };
 }
 
 export class DeepgramLiveClient implements LiveTranscriptionClient {
@@ -197,9 +151,9 @@ export class DeepgramLiveClient implements LiveTranscriptionClient {
         return;
       }
 
-      const segment = toTranscriptSegment(message as DeepgramResultMessage);
+      const segments = toTranscriptSegments(message as DeepgramResultMessage);
 
-      if (segment) {
+      for (const segment of segments) {
         this.callbacks.onSegment(segment);
       }
     });
